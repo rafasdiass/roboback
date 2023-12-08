@@ -13,7 +13,7 @@ class APIService:
         # URL base para a API da Alpha Vantage
         self.base_url = 'https://www.alphavantage.co/query'
         # URL para buscar decisões do robô do seu backend
-        self.decisions_url = 'http://127.0.0.1:8080/api/robo-decisions'
+        self.decisions_url = 'http://127.0.0.1:8080/api/decisoes-robo'
 
     def fetch_time_series_intraday(self, symbol, interval):
         # Constrói os parâmetros da requisição
