@@ -2,21 +2,25 @@
 
 import time
 from threading import Thread
+from automacao.models import TradingDecision
+from django.utils import timezone
 
 class RoboService:
-    def __init__(self, decision_service, currency_pair_service, db_service):
+    def __init__(self, decision_service, currency_pair_service, learning_service):
         self.decision_service = decision_service
         self.currency_pair_service = currency_pair_service
-        self.db_service = db_service  # Serviço para interação com o banco de dados
+        self.learning_service = learning_service  # Adicionado para interagir com o serviço de aprendizado
         self.last_decisions = {}
         self.running = True
         self.observer_thread = Thread(target=self.run_observer)
+        self.observer_thread.daemon = True  # Garantir que o thread não impeça o programa de sair
         self.observer_thread.start()
 
     def observe_data(self):
         if not self.running:
             self.running = True
             self.observer_thread = Thread(target=self.run_observer)
+            self.observer_thread.daemon = True
             self.observer_thread.start()
 
     def run_observer(self):
@@ -40,11 +44,17 @@ class RoboService:
 
         for pair in currency_pairs:
             prices5min, prices15min, prices1h = self.currency_pair_service.fetch_price_data(pair)
-            decision = self.decision_service.make_decision(pair, prices5min, prices15min, prices1h)
+            decision, indicators = self.decision_service.make_decision(pair, prices5min, prices15min, prices1h)
 
             if self.last_decisions.get(pair) != decision:
                 print(f"Decisão alterada para {pair}: {decision}")
                 self.last_decisions[pair] = decision
-                self.db_service.save_decision(pair, decision)  # Salvar decisão no banco de dados
+                self.save_decision(pair, decision, indicators)
+
+    def save_decision(self, currency_pair, decision, indicators):
+        TradingDecision.objects.create(currency_pair=currency_pair, decision=decision)
+        success = decision in ["Compra", "Venda"]  # Defina seu critério de sucesso
+        self.learning_service.store_result(indicators, success)
+        # Substitua {} pelos indicadores reais usados na decisão
 
     # Outros métodos conforme necessário

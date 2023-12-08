@@ -1,5 +1,7 @@
 # services/learning_service.py
 
+from automacao.models import Weight
+
 class LearningService:
     def __init__(self):
         self.default_weights = {
@@ -15,20 +17,27 @@ class LearningService:
         self.learning_rate = 0.1
 
     def load_weights(self):
-        # Aqui você pode carregar os pesos do banco de dados
-        # Por simplicidade, estou usando os pesos padrão
-        return self.default_weights.copy()
+        # Carrega os pesos do banco de dados
+        weights = self.default_weights.copy()
+        weight_objects = Weight.objects.all()
+        for weight_object in weight_objects:
+            weights[weight_object.indicator] = weight_object.value
+        return weights
 
     def save_weights(self):
-        for key in self.weights:
-            self.weights[key] *= self.decay_factor
-        # Aqui você pode salvar os pesos no banco de dados
+        # Salva os pesos no banco de dados
+        for key, value in self.weights.items():
+            Weight.objects.update_or_create(
+                indicator=key, defaults={'value': value * self.decay_factor}
+            )
 
     def store_result(self, indicators, success):
+        # Atualiza os pesos com base no sucesso ou fracasso e salva no banco de dados
         for key in indicators:
             delta = self.learning_rate if success else -self.learning_rate
             self.weights[key] = self.weights.get(key, 0) + delta
 
+        # Normaliza os pesos para que sua soma seja 1
         sum_weights = sum(self.weights.values())
         for key in self.weights:
             self.weights[key] /= sum_weights
@@ -36,15 +45,17 @@ class LearningService:
         self.save_weights()
 
     def make_decision(self, indicators):
+        # Faz uma decisão com base nos indicadores e pesos atuais
         score = 0
         for key, value in indicators.items():
             score += self.weights.get(key, 0) * value
 
-        # Considerar a correlação entre diferentes indicadores
+        # Ajusta a pontuação se necessário com base na correlação dos indicadores
         if indicators.get('rsi', 0) > 0 and indicators.get('price_change', 0) < 0:
             score *= 0.9
 
         return score
 
     def get_weights(self):
+        # Retorna os pesos atuais
         return self.weights

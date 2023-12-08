@@ -1,6 +1,7 @@
-# -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+# automacao/admin.py
 
 from django.contrib import admin
+from .models import Weight, TradingDecision
 
-# Register your models here.
+admin.site.register(Weight)
+admin.site.register(TradingDecision)

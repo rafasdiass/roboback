@@ -1,33 +1,31 @@
 # services/currency_pair_service.py
 
+# Importe APIService
+from .api_service import APIService
+
 class CurrencyPairService:
     def __init__(self, api_service):
         self.api_service = api_service
         self.currency_pairs = ['EURUSD', 'AUDCAD']
-        self.closing_prices = {
-            '5min': [],
-            '15min': [],
-            '1h': []
-        }
 
-    def calculate_fibonacci_levels(self, low, high):
-        fibo_levels = [0.382, 0.5, 0.618]
-        return [low + (high - low) * level for level in fibo_levels]
+    def get_currency_pairs(self):
+        # Retorna a lista de pares de moeda disponíveis para análise
+        return self.currency_pairs
 
     def fetch_price_data(self, symbol, interval):
-        # Aqui você pode chamar seu ApiService para buscar dados
-        # Por simplicidade, estou omitindo a chamada real e a lógica de tratamento de resposta
-        # Você precisará implementar a lógica de chamada da API e processamento da resposta
-        pass
+        # Utiliza o APIService para buscar os dados de preço
+        return self.api_service.fetch_time_series_intraday(symbol, interval)
 
-    def process_price_data_response(self, response, interval):
-        # Processar a resposta da API e extrair os preços de fechamento
-        # Esta é uma adaptação simplificada
-        key = f"Time Series ({interval})"
-        if key in response:
-            time_series = response[key]
-            closing_prices = [float(entry['4. close']) for entry in time_series.values()]
-            self.update_closing_prices(interval, closing_prices)
+# Exemplo de uso do CurrencyPairService
+# Você deve criar uma instância do APIService em outro lugar no seu código
+# e passá-la para CurrencyPairService quando criar uma instância desta classe.
+# Exemplo (em algum outro lugar no seu código):
+# api_service = APIService(api_key='SUA_CHAVE_API')
+# currency_pair_service = CurrencyPairService(api_service)
 
-    def update_closing_prices(self, interval, closing_prices):
-        self.closing_prices[interval] = closing_prices
+# O trecho a seguir é apenas um exemplo e deve ser colocado onde você realmente usa o serviço:
+# try:
+#     price_data = currency_pair_service.fetch_price_data('EURUSD', '5min')
+#     print(price_data)
+# except requests.exceptions.HTTPError as err:
+#     print(f"Erro ao buscar dados de preço: {err}")
