@@ -1,10 +1,7 @@
 from django.urls import path
-from .views import get_robo_decisions, get_currency_pair_data
+from .views import RoboDecisionsView, CurrencyPairDataView
 
 urlpatterns = [
-    # Este caminho é para a função de view que retorna as decisões do robô
-    path('decisoes-robo/', get_robo_decisions, name='decisoes-robo'),
-
-    # Este caminho é para a função de view que retorna os dados do par de moedas
-    path('dados-par-moeda/', get_currency_pair_data, name='dados-par-moeda'),
+    path('decisoes-robo/', RoboDecisionsView.as_view(), name='decisoes-robo'),
+    path('dados-par-moeda/', CurrencyPairDataView.as_view(), name='dados-par-moeda'),
 ]
