@@ -8,7 +8,7 @@ class RoboService:
         self.decision_service = decision_service
         self.currency_pair_service = currency_pair_service
         self.learning_service = learning_service
-        self.api_service = api_service  # Adicionado para comunicação com o front-end
+        self.api_service = api_service
         self.last_decisions = {}
         self.running = True
         self.observer_thread = Thread(target=self.run_observer)
@@ -42,22 +42,25 @@ class RoboService:
             return
 
         for pair in currency_pairs:
-            # Define os intervalos
-            intervals = ["5min", "15min", "1h"]
+            try:
+                prices5min = self.currency_pair_service.fetch_price_data(pair, "5min")
+                prices15min = self.currency_pair_service.fetch_price_data(pair, "15min")
+                prices1h = self.currency_pair_service.fetch_price_data(pair, "1h")
 
-            # Obtém os dados de preço para cada intervalo
-            prices5min = self.currency_pair_service.fetch_price_data(pair, intervals[0])
-            prices15min = self.currency_pair_service.fetch_price_data(pair, intervals[1])
-            prices1h = self.currency_pair_service.fetch_price_data(pair, intervals[2])
+                if len(prices5min) < 14 or len(prices15min) < 14 or len(prices1h) < 14:
+                    print(f"Dados insuficientes para {pair}.")
+                    continue
 
-            # Continua com o processamento
-            decision, indicators = self.decision_service.make_decision(pair, prices5min, prices15min, prices1h)
+                decision, indicators = self.decision_service.make_decision(pair, prices5min, prices15min, prices1h)
 
-            if self.last_decisions.get(pair) != decision:
-                print(f"Decisão alterada para {pair}: {decision}")
-                self.last_decisions[pair] = decision
-                self.save_decision(pair, decision, indicators)
-                self.api_service.save_robo_decision(pair, decision)  # Novo método para salvar a decisão
+                if self.last_decisions.get(pair) != decision:
+                    print(f"Decisão alterada para {pair}: {decision}")
+                    self.last_decisions[pair] = decision
+                    self.save_decision(pair, decision, indicators)
+                    self.api_service.save_robo_decision(pair, decision)
+
+            except Exception as e:
+                print(f"Erro ao processar {pair}: {e}")
 
     def save_decision(self, currency_pair, decision, indicators):
         TradingDecision.objects.create(currency_pair=currency_pair, decision=decision)
