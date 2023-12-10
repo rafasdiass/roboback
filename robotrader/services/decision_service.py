@@ -1,5 +1,3 @@
-# services/decision_service.py
-
 from .util_service import UtilService
 from .learning_service import LearningService
 from .constants import *
@@ -12,12 +10,10 @@ class DecisionService:
     def make_decision(self, currency_pair, prices5min, prices15min, prices1h):
         if not prices5min:
             print("Dados de preços de 5 minutos insuficientes para tomar uma decisão.")
-            return "Sem sinal"
+            return "Sem sinal", None
 
-        # Obtem os pesos do modelo de aprendizado
         weights = self.learning_service.get_weights()
 
-        # Calcula os indicadores técnicos
         indicators = {
             "rsi": self.util_service.calculate_rsi(prices5min),
             "ema": self.util_service.calculate_ema(prices5min),
@@ -26,22 +22,24 @@ class DecisionService:
             "pattern": self.util_service.identify_patterns(prices5min)
         }
 
-        # Obtem a decisão com base nos indicadores e pesos do modelo
-        total_score = self.learning_service.make_decision(indicators)
-        success = total_score > 0
-        self.learning_service.store_result(indicators, success)
+        scores = {
+            'rsi_score': self.get_rsi_score(indicators['rsi']),
+            'ema_score': self.get_ema_score(prices5min[-1], indicators['ema']),
+            'price_change_score': self.get_price_change_score(indicators['price_change']),
+            'stochastic_oscillator_score': self.get_stochastic_oscillator_score(indicators['stochastic_oscillator']),
+            'pattern_score': self.get_pattern_score(indicators['pattern'])
+        }
 
-        # Interpreta a pontuação total para tomar uma decisão
+        total_score = sum([weights[key] * scores[key] for key in scores])
+
         if total_score == 0:
-            return 'Sem sinal'
+            return 'Sem sinal', None
 
         confidence = abs(total_score)
         decision = "Compra" if total_score > 0 else "Venda"
         decision += f" com {confidence * 10}% de confiança"
-        return decision
+        return decision, indicators
 
-    # Métodos para calcular os scores de cada indicador técnico
-    # Aqui estou assumindo que você tem constantes definidas para os limites
     def get_rsi_score(self, rsi):
         return 1 if rsi < RSI_LOWER_LIMIT else -1 if rsi > RSI_UPPER_LIMIT else 0
 
@@ -56,6 +54,3 @@ class DecisionService:
 
     def get_pattern_score(self, patterns):
         return 1 if 'bullish' in patterns else -1 if 'bearish' in patterns else 0
-
-# Você precisa assegurar que os métodos de score estejam sendo chamados no make_decision se necessário,
-# e que as constantes como RSI_LOWER_LIMIT, RSI_UPPER_LIMIT, etc., estão definidas em seu módulo constants.py.

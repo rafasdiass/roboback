@@ -1,6 +1,5 @@
-# services/learning_service.py
-
 from automacao.models import Weight
+import random
 
 class LearningService:
     def __init__(self):
@@ -14,7 +13,9 @@ class LearningService:
         }
         self.weights = self.load_weights()
         self.decay_factor = 0.9
-        self.learning_rate = 0.1
+        self.initial_learning_rate = 0.1
+        self.learning_rate = self.initial_learning_rate
+        self.learning_rate_decay = 0.99  # Decremento da taxa de aprendizado
 
     def load_weights(self):
         # Carrega os pesos do banco de dados
@@ -35,14 +36,17 @@ class LearningService:
         # Atualiza os pesos com base no sucesso ou fracasso e salva no banco de dados
         for key in indicators:
             delta = self.learning_rate if success else -self.learning_rate
-            self.weights[key] = self.weights.get(key, 0) + delta
+            self.weights[key] = max(min(self.weights.get(key, 0) + delta, 1), -1)  # Limita os pesos entre -1 e 1
 
         # Normaliza os pesos para que sua soma seja 1
-        sum_weights = sum(self.weights.values())
+        sum_weights = sum(abs(weight) for weight in self.weights.values())
         for key in self.weights:
             self.weights[key] /= sum_weights
 
         self.save_weights()
+
+        # Reduz a taxa de aprendizado a cada iteração
+        self.learning_rate *= self.learning_rate_decay
 
     def make_decision(self, indicators):
         # Faz uma decisão com base nos indicadores e pesos atuais
@@ -59,3 +63,7 @@ class LearningService:
     def get_weights(self):
         # Retorna os pesos atuais
         return self.weights
+
+    # Função adicional para resetar a taxa de aprendizado (se necessário)
+    def reset_learning_rate(self):
+        self.learning_rate = self.initial_learning_rate
