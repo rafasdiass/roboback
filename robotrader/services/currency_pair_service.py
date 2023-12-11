@@ -9,4 +9,6 @@ class CurrencyPairService:
         return self.currency_pairs
 
     def fetch_price_data(self, symbol, interval):
+        if not self.chart_data_service:
+            raise ValueError("ChartDataService não está definido.")
         return self.chart_data_service.fetch_time_series_intraday(symbol, interval)

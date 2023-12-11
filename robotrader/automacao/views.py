@@ -1,8 +1,9 @@
+# automacao/views.py
+import pandas as pd  # Importação do pandas
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-import pandas as pd  # Importando pandas
-
 from services.robo_service import RoboService
 from services.currency_pair_service import CurrencyPairService
 from services.decision_service import DecisionService

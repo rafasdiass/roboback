@@ -12,7 +12,9 @@ class DecisionService:
             print("Dados de preços de 5 minutos insuficientes para tomar uma decisão.")
             return "Sem sinal", None
 
-        weights = self.learning_service.get_weights()
+        if len(prices5min) < 14:
+            print("Dados insuficientes para calcular indicadores.")
+            return "Sem sinal", None
 
         indicators = {
             "rsi": self.util_service.calculate_rsi(prices5min),
@@ -30,6 +32,7 @@ class DecisionService:
             'pattern_score': self.get_pattern_score(indicators['pattern'])
         }
 
+        weights = self.learning_service.get_weights()
         total_score = sum([weights[key] * scores[key] for key in scores])
 
         if total_score == 0:
@@ -43,8 +46,8 @@ class DecisionService:
     def get_rsi_score(self, rsi):
         return 1 if rsi < RSI_LOWER_LIMIT else -1 if rsi > RSI_UPPER_LIMIT else 0
 
-    def get_ema_score(self, price, ema9):
-        return 1 if price > ema9 else -1 if price < ema9 else 0
+    def get_ema_score(self, price, ema):
+        return 1 if price > ema else -1 if price < ema else 0
 
     def get_price_change_score(self, price_change):
         return 1 if price_change > 0 else -1 if price_change < 0 else 0
@@ -52,5 +55,6 @@ class DecisionService:
     def get_stochastic_oscillator_score(self, stochastic_oscillator):
         return 1 if stochastic_oscillator < STOCHASTIC_LOWER_LIMIT else -1 if stochastic_oscillator > STOCHASTIC_UPPER_LIMIT else 0
 
-    def get_pattern_score(self, patterns):
-        return 1 if 'bullish' in patterns else -1 if 'bearish' in patterns else 0
+    def get_pattern_score(self, pattern):
+        # Implemente a lógica para calcular a pontuação com base no padrão identificado
+        return 1 if 'bullish' in pattern else -1 if 'bearish' in pattern else 0
