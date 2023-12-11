@@ -25,20 +25,28 @@ class RoboService:
     def check_and_update_decisions(self):
         currency_pairs = self.currency_pair_service.get_currency_pairs()
         for pair in currency_pairs:
-            try:
-                prices5min = self.currency_pair_service.fetch_price_data(pair, "5min")
-                prices15min = self.currency_pair_service.fetch_price_data(pair, "15min")
-                prices1h = self.currency_pair_service.fetch_price_data(pair, "1h")
-                if self.are_prices_sufficient(prices5min, prices15min, prices1h):
-                    decision, indicators = self.decision_service.make_decision(pair, prices5min, prices15min, prices1h)
-                    self.update_decision_if_changed(pair, decision, indicators)
-            except Exception as e:
-                print(f"Erro ao processar {pair}: {e}")
+            self.process_pair(pair)
+
+    def process_pair(self, pair):
+        try:
+            prices5min, prices15min, prices1h = self.fetch_price_data(pair)
+            if self.are_prices_sufficient(prices5min, prices15min, prices1h):
+                self.evaluate_and_update_decision(pair, prices5min, prices15min, prices1h)
+        except Exception as e:
+            print(f"Erro ao processar {pair}: {e}")
+
+    def fetch_price_data(self, pair):
+        return (
+            self.currency_pair_service.fetch_price_data(pair, "5min"),
+            self.currency_pair_service.fetch_price_data(pair, "15min"),
+            self.currency_pair_service.fetch_price_data(pair, "1h")
+        )
 
     def are_prices_sufficient(self, prices5min, prices15min, prices1h):
         return all(len(prices) >= 14 for prices in [prices5min, prices15min, prices1h])
 
-    def update_decision_if_changed(self, pair, decision, indicators):
+    def evaluate_and_update_decision(self, pair, prices5min, prices15min, prices1h):
+        decision, indicators = self.decision_service.make_decision(pair, prices5min, prices15min, prices1h)
         if self.last_decisions.get(pair) != decision:
             print(f"Decisão alterada para {pair}: {decision}")
             self.last_decisions[pair] = decision
