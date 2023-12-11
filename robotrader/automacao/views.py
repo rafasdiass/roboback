@@ -1,7 +1,8 @@
-# services/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+import pandas as pd  # Importando pandas
+
 from services.robo_service import RoboService
 from services.currency_pair_service import CurrencyPairService
 from services.decision_service import DecisionService
@@ -11,7 +12,7 @@ from services.chart_data_service import ChartDataService
 
 # Inicialização dos serviços
 api_service = APIService()
-chart_data_service = ChartDataService(api_key='NB19FGHNM74Q9QAU')  # Chave da API atualizada
+chart_data_service = ChartDataService()
 currency_pair_service = CurrencyPairService(chart_data_service)
 decision_service = DecisionService()
 learning_service = LearningService()
@@ -35,7 +36,13 @@ class CurrencyPairDataView(APIView):
             symbol = request.query_params.get('symbol', 'EURUSD')
             interval = request.query_params.get('interval', '5min')
             currency_pair_data = currency_pair_service.fetch_price_data(symbol, interval)
-            currency_pair_data_serializable = {'symbol': symbol, 'data': currency_pair_data}
-            return Response(currency_pair_data_serializable)
+
+            # Verifique se os dados são um DataFrame do pandas e converta-os para um formato serializável
+            if isinstance(currency_pair_data, pd.DataFrame):
+                currency_pair_data_serializable = currency_pair_data.to_dict(orient='records')
+            else:
+                currency_pair_data_serializable = currency_pair_data  # Se não for um DataFrame, assuma que é serializável
+
+            return Response({'symbol': symbol, 'data': currency_pair_data_serializable})
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
