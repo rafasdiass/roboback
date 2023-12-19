@@ -1,3 +1,5 @@
+import pandas as pd
+import logging  # Adicione esta linha
 from .chart_data_service import ChartDataService
 
 class CurrencyPairService:
@@ -27,30 +29,30 @@ class CurrencyPairService:
         return data
 
     def validate_data(self, data):
-        """
-        Valida a integridade e completude dos dados de preços.
-        """
         if data is None or len(data) < self.min_data_points:
+            logging.error(f"Quantidade de dados recebida para análise: {len(data) if data is not None else 0}")
             return False  # Dados insuficientes para análise.
 
-        # Verificar lacunas significativas nos dados
         if self.has_significant_gaps(data):
+            logging.error("Lacunas significativas encontradas nos dados.")
             return False  # Lacunas significativas encontradas.
 
         return True  # Dados validados com sucesso.
-
     def has_significant_gaps(self, data):
         """
         Verifica se há lacunas significativas nos dados.
+        Assume que 'data' é um DataFrame do pandas com índices de data e hora.
         """
-        # Implementação simplificada. Adapte conforme necessário.
-        max_allowed_gap = 2  # Define o tamanho máximo permitido para uma lacuna.
-        for i in range(1, len(data)):
-            if data.index[i] - data.index[i - 1] > max_allowed_gap:
+        if not isinstance(data, pd.DataFrame):
+            raise ValueError("Os dados devem ser um DataFrame do pandas.")
+
+        # Ajuste o limite de lacunas para ser menos restritivo
+        max_allowed_gap = pd.Timedelta(days=2)  # Por exemplo, permitir lacunas de até 2 dias
+
+        last_valid_index = None
+        for i in range(len(data)):
+            if last_valid_index is not None and data.index[i] - last_valid_index > max_allowed_gap:
                 return True  # Lacuna significativa encontrada.
+            last_valid_index = data.index[i]
         
         return False  # Nenhuma lacuna significativa encontrada.
-
-# Exemplo de uso:
-# service = CurrencyPairService()
-# data = service.fetch_price_data('EURUSD', '1h')
