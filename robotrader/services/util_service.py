@@ -1,3 +1,4 @@
+import pandas as pd
 import logging
 
 class PriceDataError(Exception):
@@ -8,34 +9,73 @@ class UtilService:
     @staticmethod
     def validate_prices(prices, period):
         if len(prices) < period:
-            raise PriceDataError(f"Não há dados suficientes para calcular o indicador. "
-                                 f"Esperado: {period}, fornecido: {len(prices)}")
+            raise PriceDataError(f"Não há dados suficientes para calcular o indicador. Esperado: {period}, fornecido: {len(prices)}")
 
     @staticmethod
-    def calculate_rsi(prices, period=14):
-        if not prices or len(prices) < period:
+    def calculate_rsi(prices, period=7):
+        if len(prices) < period + 1:
             logging.warning("Dados insuficientes para calcular o RSI.")
             return None
-        gains, losses = 0, 0
-        for i in range(1, period + 1):
-            difference = prices[i] - prices[i - 1]
-            gains += max(difference, 0)
-            losses -= min(difference, 0)
-        avg_gain = gains / period if gains > 0 else 0
-        avg_loss = -losses / period if losses < 0 else 0
-        rs = avg_gain / avg_loss if avg_loss != 0 else 0
-        rsi = 100 - (100 / (1 + rs)) if avg_loss != 0 else 100
-        return rsi
+
+        prices_series = pd.Series(prices)
+        delta = prices_series.diff().dropna()
+        up, down = delta.copy(), delta.copy()
+        up[up < 0] = 0
+        down[down > 0] = 0
+
+        roll_up = up.ewm(span=period).mean()
+        roll_down = down.abs().ewm(span=period).mean()
+
+        RS = roll_up / roll_down
+        RSI = 100.0 - (100.0 / (1.0 + RS))
+
+        return RSI.iloc[-1]
 
     @staticmethod
     def calculate_ema(prices, period=9):
-        if not prices or len(prices) < period:
+        if len(prices) < period:
             logging.warning("Dados insuficientes para calcular a EMA.")
             return None
-        ema, multiplier = prices[0], 2 / (period + 1)
-        for price in prices[1:]:
-            ema = ((price - ema) * multiplier) + ema
-        return ema
+
+        prices_series = pd.Series(prices)
+        ema = prices_series.ewm(span=period, adjust=False).mean()
+
+        return ema.iloc[-1]
+
+    @staticmethod
+    def get_ema_direction_and_touches(prices, period=9):
+        if len(prices) < period:
+            return None, 0
+
+        prices_series = pd.Series(prices)
+        ema = prices_series.ewm(span=period, adjust=False).mean()
+        direction = "up" if ema.iloc[-1] > ema.iloc[-2] else "down"
+
+        ema_touches = UtilService.calculate_ema_touches(prices_series, ema)
+
+        return direction, ema_touches
+
+    @staticmethod
+    def calculate_ema_touches(prices_series, ema_series, threshold=0.03):
+        ema_touches = 0
+        touch_flag = False
+
+        for i in range(1, len(prices_series)):
+            price_distance = abs(prices_series[i] - ema_series[i]) / ema_series[i]
+
+            if price_distance <= threshold:
+                if not touch_flag:
+                    touch_flag = True  # Identifica o início de um toque
+                    continue
+
+            # Verificar se houve uma mudança de direção após o toque
+            if touch_flag:
+                if (prices_series[i] > prices_series[i-1] and prices_series[i-1] < ema_series[i-1]) or \
+                   (prices_series[i] < prices_series[i-1] and prices_series[i-1] > ema_series[i-1]):
+                    ema_touches += 1
+                    touch_flag = False  # Reseta o flag após contar o toque
+
+        return ema_touches
 
     @staticmethod
     def calculate_price_change(prices):
@@ -48,54 +88,44 @@ class UtilService:
             raise
 
     @staticmethod
-    def calculate_stochastic_oscillator(prices, period=14):
-        if not prices or len(prices) < period:
+    def calculate_stochastic_oscillator(high_prices, low_prices, close_prices, period=14):
+        if len(close_prices) < period:
             logging.warning("Dados insuficientes para calcular o Oscilador Estocástico.")
             return None
-        low, high = min(prices[:period]), max(prices[:period])
-        if high == low:
-            return 100
-        return ((prices[-1] - low) / (high - low)) * 100
+
+        high_max = pd.Series(high_prices).rolling(window=period).max()
+        low_min = pd.Series(low_prices).rolling(window=period).min()
+        stoch = ((close_prices[-1] - low_min[-1]) / (high_max[-1] - low_min[-1])) * 100
+
+        return stoch
 
     @staticmethod
     def identify_patterns(prices):
-        if not prices or len(prices) < 5:
+        if len(prices) < 5:
             logging.warning("Dados insuficientes para identificar padrões.")
-            return {'wPatterns': [], 'mPatterns': []}
-        w_patterns, m_patterns = [], []
+            return {'topo_duplo': [], 'fundo_duplo': []}
+
+        topo_duplo, fundo_duplo = [], []
+
         for i in range(4, len(prices)):
-            slice = prices[i - 4:i + 1]
-            if slice[0] > slice[1] < slice[2] > slice[3] < slice[4]:
-                w_patterns.append(i)
-            elif slice[0] < slice[1] > slice[2] < slice[3] > slice[4]:
-                m_patterns.append(i)
-        return {'wPatterns': w_patterns, 'mPatterns': m_patterns}
+            segment = prices[i-4:i+1]
+            if segment[1] == max(segment[:3]) and segment[3] == max(segment[2:]):
+                topo_duplo.append(i-2)
+            if segment[1] == min(segment[:3]) and segment[3] == min(segment[2:]):
+                fundo_duplo.append(i-2)
+
+        return {'topo_duplo': topo_duplo, 'fundo_duplo': fundo_duplo}
 
     @staticmethod
     def calculate_support_and_resistance(prices):
-        if not prices or len(prices) < 3:
+        if len(prices) < 2:
             logging.warning("Dados insuficientes para calcular suporte e resistência.")
             return {'support': None, 'resistance': None}
-        low, high, close = min(prices), max(prices), prices[-1]
-        pivot_point = (low + high + close) / 3
+
+        high = max(prices)
+        low = min(prices)
+        pivot_point = (high + low + prices[-1]) / 3
         support = 2 * pivot_point - high
         resistance = 2 * pivot_point - low
+
         return {'support': support, 'resistance': resistance}
-
-    @staticmethod
-    def apply_retracement_strategy(prices, time_frame):
-        levels = UtilService.calculate_support_and_resistance(prices)
-        if not levels['support'] or not levels['resistance']:
-            return "Sem sinal"
-        current_price = prices[-1]
-        if levels['support'] < current_price < levels['resistance']:
-            return "Retrair" if time_frame in ['5min', '15min'] else "Sem sinal"
-        return "Sem sinal"
-
-    @staticmethod
-    def apply_composite_retracement_strategy(prices_5min, prices_15min):
-        retracement_5min = UtilService.apply_retracement_strategy(prices_5min, '5min')
-        retracement_15min = UtilService.apply_retracement_strategy(prices_15min, '15min')
-        if retracement_5min == "Retrair" and retracement_15min == "Retrair":
-            return "Retração Forte"
-        return "Sem sinal"

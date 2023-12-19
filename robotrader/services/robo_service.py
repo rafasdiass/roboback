@@ -2,6 +2,7 @@ import time
 from threading import Thread
 from automacao.models import TradingDecision
 from django.utils import timezone
+import logging
 
 class RoboService:
     def __init__(self, decision_service, currency_pair_service, learning_service, api_service):
@@ -19,8 +20,8 @@ class RoboService:
             try:
                 self.check_and_update_decisions()
             except Exception as e:
-                print(f"Erro durante a observação: {e}")
-            time.sleep(300)  # Espera por 5 minutos
+                logging.error(f"Erro durante a observação: {e}")
+            time.sleep(300)
 
     def check_and_update_decisions(self):
         currency_pairs = self.currency_pair_service.get_currency_pairs()
@@ -33,7 +34,7 @@ class RoboService:
             if self.are_prices_sufficient(prices5min, prices15min, prices1h):
                 self.evaluate_and_update_decision(pair, prices5min, prices15min, prices1h)
         except Exception as e:
-            print(f"Erro ao processar {pair}: {e}")
+            logging.error(f"Erro ao processar {pair}: {e}")
 
     def fetch_price_data(self, pair):
         return (
@@ -48,7 +49,7 @@ class RoboService:
     def evaluate_and_update_decision(self, pair, prices5min, prices15min, prices1h):
         decision, indicators = self.decision_service.make_decision(pair, prices5min, prices15min, prices1h)
         if self.last_decisions.get(pair) != decision:
-            print(f"Decisão alterada para {pair}: {decision}")
+            logging.info(f"Decisão alterada para {pair}: {decision}")
             self.last_decisions[pair] = decision
             self.save_decision(pair, decision, indicators)
 

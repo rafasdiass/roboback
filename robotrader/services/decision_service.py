@@ -25,7 +25,7 @@ class DecisionService:
     def calculate_indicators(self, prices):
         if not prices:
             raise PriceDataError("Lista de preços vazia.")
-        price = prices[-1]  # Preço atual
+        price = prices[-1]
         return {
             "price": price,
             "rsi": self.util_service.calculate_rsi(prices),
@@ -38,9 +38,9 @@ class DecisionService:
     def calculate_scores(self, indicators):
         return {
             'rsi_score': self.get_rsi_score(indicators['rsi']),
-            'ema_score': self.get_ema_score(indicators['ema'], indicators['price']),
+            'ema_score': self.get_ema_score(indicators['ema'], indicators['price'], indicators['prices']),
             'price_change_score': self.get_price_change_score(indicators['price_change']),
-            'stochastic_oscillator_score': self.get_stochastic_oscillator_score(indicators['stochastic_oscillator']),
+            'stochastic_oscillator_score': self.get_stochastic_oscillator_score(indicators['stochastic_oscillator'], indicators['rsi']),
             'pattern_score': self.get_pattern_score(indicators['pattern'])
         }
 
@@ -56,28 +56,47 @@ class DecisionService:
         return f"{decision} com {confidence * 10:.0f}% de confiança", confidence
 
     def default_decision(self):
-        # Uma decisão padrão em caso de dados insuficientes ou erros
         return "Manter"
 
     def get_rsi_score(self, rsi):
         if rsi is None:
             return 0
-        return 1 if rsi < RSI_LOWER_LIMIT else -1 if rsi > RSI_UPPER_LIMIT else 0
+        if rsi > RSI_UPPER_LIMIT:  # RSI_UPPER_LIMIT definido como 70
+            return -1  # Pontuação para condição de sobrecompra (venda)
+        elif rsi < RSI_LOWER_LIMIT:  # RSI_LOWER_LIMIT definido como 20
+            return 1  # Pontuação para condição de sobrevenda (compra)
+        else:
+            return 0  # Neutro
 
-    def get_ema_score(self, ema, price):
+    def get_ema_score(self, ema, price, prices):
         if ema is None or price is None:
             return 0
-        return 1 if price > ema else -1 if price < ema else 0
+
+        # Lógica para determinar a direção da EMA e verificar os 3 toques com retração
+        # Nota: Esta função precisa ser implementada em UtilService
+        ema_direction, ema_touches = self.util_service.get_ema_direction_and_touches(prices)
+        if ema_touches >= 3:
+            if price > ema and ema_direction == 'up':
+                return 1  # Tendência de alta confirmada
+            elif price < ema and ema_direction == 'down':
+                return -1  # Tendência de baixa confirmada
+        return 0  # Neutro
 
     def get_price_change_score(self, price_change):
         if price_change is None:
             return 0
         return 1 if price_change > 0 else -1 if price_change < 0 else 0
 
-    def get_stochastic_oscillator_score(self, stochastic_oscillator):
-        if stochastic_oscillator is None:
+    def get_stochastic_oscillator_score(self, stochastic_oscillator, rsi):
+        if stochastic_oscillator is None or rsi is None:
             return 0
-        return 1 if stochastic_oscillator < STOCHASTIC_LOWER_LIMIT else -1 if stochastic_oscillator > STOCHASTIC_UPPER_LIMIT else 0
+
+        # Uso do Oscilador Estocástico em conjunto com o RSI para confirmar tendências
+        if rsi > RSI_UPPER_LIMIT and stochastic_oscillator > STOCHASTIC_UPPER_LIMIT:
+            return -1  # Ambos indicam sobrecompra
+        elif rsi < RSI_LOWER_LIMIT and stochastic_oscillator < STOCHASTIC_LOWER_LIMIT:
+            return 1  # Ambos indicam sobrevenda
+        return 0  # Neutro
 
     def get_pattern_score(self, pattern):
         if pattern is None:
