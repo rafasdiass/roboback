@@ -9,7 +9,7 @@ class DecisionService:
         self.learning_service = LearningService()
 
     def make_decision(self, currency_pair, prices5min, prices15min, prices1h):
-        if not all(prices for prices in [prices5min, prices15min, prices1h]):
+        if not all([prices5min, prices15min, prices1h]):
             logging.warning(f"Dados de preços insuficientes ou nulos para {currency_pair}.")
             return "Sem sinal", None
 
@@ -25,23 +25,28 @@ class DecisionService:
     def calculate_indicators(self, prices):
         if not prices:
             raise PriceDataError("Lista de preços vazia.")
+
         price = prices[-1]
+        rsi, stochastic_oscillator = self.util_service.calculate_combined_stochastic_rsi(prices, prices, prices)
+        
         return {
             "price": price,
-            "rsi": self.util_service.calculate_rsi(prices),
+            "rsi": rsi,
+            "stochastic_oscillator": stochastic_oscillator,
             "ema": self.util_service.calculate_ema(prices),
             "price_change": self.util_service.calculate_price_change(prices),
-            "stochastic_oscillator": self.util_service.calculate_stochastic_oscillator(prices),
-            "pattern": self.util_service.identify_patterns(prices)
+            "pattern": self.util_service.identify_patterns(prices),
+            "bollinger_bands": self.util_service.calculate_bollinger_bands(prices)
         }
 
     def calculate_scores(self, indicators):
         return {
-            'rsi_score': self.get_rsi_score(indicators['rsi']),
-            'ema_score': self.get_ema_score(indicators['ema'], indicators['price'], indicators['prices']),
-            'price_change_score': self.get_price_change_score(indicators['price_change']),
-            'stochastic_oscillator_score': self.get_stochastic_oscillator_score(indicators['stochastic_oscillator'], indicators['rsi']),
-            'pattern_score': self.get_pattern_score(indicators['pattern'])
+            'rsi_score': self.score_rsi(indicators['rsi']),
+            'ema_score': self.score_ema(indicators['ema'], indicators['price']),
+            'price_change_score': self.score_price_change(indicators['price_change']),
+            'stochastic_oscillator_score': self.score_stochastic_oscillator(indicators['stochastic_oscillator'], indicators['rsi']),
+            'pattern_score': self.score_pattern(indicators['pattern']),
+            'bollinger_band_score': self.score_bollinger_bands(indicators['price'], indicators['bollinger_bands'])
         }
 
     def evaluate_decision(self, scores):
@@ -58,47 +63,32 @@ class DecisionService:
     def default_decision(self):
         return "Manter"
 
-    def get_rsi_score(self, rsi):
+    def score_rsi(self, rsi):
         if rsi is None:
             return 0
-        if rsi > RSI_UPPER_LIMIT:  # RSI_UPPER_LIMIT definido como 70
-            return -1  # Pontuação para condição de sobrecompra (venda)
-        elif rsi < RSI_LOWER_LIMIT:  # RSI_LOWER_LIMIT definido como 20
-            return 1  # Pontuação para condição de sobrevenda (compra)
-        else:
-            return 0  # Neutro
+        return -1 if rsi > RSI_UPPER_LIMIT else 1 if rsi < RSI_LOWER_LIMIT else 0
 
-    def get_ema_score(self, ema, price, prices):
+    def score_ema(self, ema, price):
         if ema is None or price is None:
             return 0
-
-        # Lógica para determinar a direção da EMA e verificar os 3 toques com retração
-        # Nota: Esta função precisa ser implementada em UtilService
-        ema_direction, ema_touches = self.util_service.get_ema_direction_and_touches(prices)
+        ema_direction, ema_touches = self.util_service.get_ema_direction_and_touches([price])
         if ema_touches >= 3:
-            if price > ema and ema_direction == 'up':
-                return 1  # Tendência de alta confirmada
-            elif price < ema and ema_direction == 'down':
-                return -1  # Tendência de baixa confirmada
-        return 0  # Neutro
+            return 1 if price > ema and ema_direction == 'up' else -1 if price < ema and ema_direction == 'down' else 0
+        return 0
 
-    def get_price_change_score(self, price_change):
-        if price_change is None:
-            return 0
+    def score_price_change(self, price_change):
         return 1 if price_change > 0 else -1 if price_change < 0 else 0
 
-    def get_stochastic_oscillator_score(self, stochastic_oscillator, rsi):
+    def score_stochastic_oscillator(self, stochastic_oscillator, rsi):
         if stochastic_oscillator is None or rsi is None:
             return 0
+        return -1 if rsi > RSI_UPPER_LIMIT and stochastic_oscillator > STOCHASTIC_UPPER_LIMIT else 1 if rsi < RSI_LOWER_LIMIT and stochastic_oscillator < STOCHASTIC_LOWER_LIMIT else 0
 
-        # Uso do Oscilador Estocástico em conjunto com o RSI para confirmar tendências
-        if rsi > RSI_UPPER_LIMIT and stochastic_oscillator > STOCHASTIC_UPPER_LIMIT:
-            return -1  # Ambos indicam sobrecompra
-        elif rsi < RSI_LOWER_LIMIT and stochastic_oscillator < STOCHASTIC_LOWER_LIMIT:
-            return 1  # Ambos indicam sobrevenda
-        return 0  # Neutro
-
-    def get_pattern_score(self, pattern):
-        if pattern is None:
-            return 0
+    def score_pattern(self, pattern):
         return 1 if 'bullish' in pattern else -1 if 'bearish' in pattern else 0
+
+    def score_bollinger_bands(self, price, bollinger_bands):
+        if bollinger_bands is None or price is None:
+            return 0
+        upper_band, _, lower_band = bollinger_bands
+        return -1 if price > upper_band.iloc[-1] else 1 if price < lower_band.iloc[-1] else 0

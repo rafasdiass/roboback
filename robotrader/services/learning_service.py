@@ -17,39 +17,64 @@ class LearningService:
         self.learning_rate_decay = 0.99
 
     def load_weights(self):
+        """ Carrega os pesos do banco de dados, usando pesos padrão em caso de falha. """
         weights = self.default_weights.copy()
         try:
-            weight_objects = Weight.objects.all()
-            for weight_object in weight_objects:
-                if -1 <= weight_object.value <= 1:  # Validação de pesos
-                    weights[weight_object.indicator] = weight_object.value
+            for weight_object in Weight.objects.all():
+                self.update_weight_from_object(weights, weight_object)
         except Exception as e:
             logging.error(f"Erro ao carregar pesos: {e}")
         return weights
 
+    def update_weight_from_object(self, weights, weight_object):
+        """ Atualiza os pesos com base no objeto de peso do banco de dados. """
+        if -1 <= weight_object.value <= 1:
+            weights[weight_object.indicator] = weight_object.value
+
     def save_weights(self):
+        """ Salva os pesos no banco de dados. """
         for key, value in self.weights.items():
-            value *= self.decay_factor  # Aplica o fator de decaimento
-            value = max(min(value, 1), -1)  # Garante que os pesos estejam no intervalo [-1, 1]
-            try:
-                Weight.objects.update_or_create(indicator=key, defaults={'value': value})
-            except Exception as e:
-                logging.error(f"Erro ao salvar pesos: {e}")
+            self.update_and_save_weight(key, value)
+
+    def update_and_save_weight(self, key, value):
+        """ Aplica o decaimento e salva o peso no banco de dados. """
+        value = self.apply_decay(value)
+        try:
+            Weight.objects.update_or_create(indicator=key, defaults={'value': value})
+        except Exception as e:
+            logging.error(f"Erro ao salvar pesos: {e}")
+
+    def apply_decay(self, value):
+        """ Aplica o fator de decaimento e limita o valor. """
+        return max(min(value * self.decay_factor, 1), -1)
 
     def store_result(self, indicators, success):
-        for key in indicators:
-            delta = self.learning_rate if success else -self.learning_rate
-            self.weights[key] = max(min(self.weights.get(key, 0) + delta, 1), -1)
+        """ Armazena o resultado do aprendizado, ajustando os pesos com base no sucesso. """
+        self.adjust_weights_based_on_success(indicators, success)
+        self.normalize_weights()
+        self.save_weights()
+        self.learning_rate *= self.learning_rate_decay
 
+    def adjust_weights_based_on_success(self, indicators, success):
+        """ Ajusta os pesos com base no resultado do aprendizado. """
+        for key in indicators:
+            self.weights[key] = self.calculate_new_weight(key, success)
+
+    def calculate_new_weight(self, key, success):
+        """ Calcula o novo peso com base no sucesso do indicador. """
+        delta = self.learning_rate if success else -self.learning_rate
+        return max(min(self.weights.get(key, 0) + delta, 1), -1)
+
+    def normalize_weights(self):
+        """ Normaliza os pesos para garantir que a soma dos pesos absolutos seja 1. """
         sum_weights = sum(abs(weight) for weight in self.weights.values())
         for key in self.weights:
-            self.weights[key] /= sum_weights  # Normalização dos pesos
-
-        self.save_weights()
-        self.learning_rate *= self.learning_rate_decay  # Decaimento da taxa de aprendizado
+            self.weights[key] /= sum_weights
 
     def get_weights(self):
+        """ Retorna os pesos atuais. """
         return self.weights
 
     def reset_learning_rate(self):
+        """ Reinicia a taxa de aprendizado para o valor inicial. """
         self.learning_rate = self.initial_learning_rate

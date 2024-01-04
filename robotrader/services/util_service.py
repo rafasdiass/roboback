@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import logging
 
 class PriceDataError(Exception):
@@ -30,6 +31,29 @@ class UtilService:
         RSI = 100.0 - (100.0 / (1.0 + RS))
 
         return RSI.iloc[-1]
+
+    @staticmethod
+    def calculate_stochastic_oscillator(high_prices, low_prices, close_prices, period=14):
+        if len(close_prices) < period:
+            logging.warning("Dados insuficientes para calcular o Oscilador Estocástico.")
+            return None
+
+        high_max = pd.Series(high_prices).rolling(window=period).max()
+        low_min = pd.Series(low_prices).rolling(window=period).min()
+        stoch = ((close_prices[-1] - low_min[-1]) / (high_max[-1] - low_min[-1])) * 100
+
+        return stoch
+
+    @staticmethod
+    def calculate_combined_stochastic_rsi(high_prices, low_prices, close_prices, rsi_period=7, stochastic_period=14):
+        if len(close_prices) < max(rsi_period, stochastic_period):
+            logging.warning("Dados insuficientes para calcular o Stochastic RSI.")
+            return None, None
+
+        rsi = UtilService.calculate_rsi(close_prices, rsi_period)
+        stochastic = UtilService.calculate_stochastic_oscillator(high_prices, low_prices, close_prices, stochastic_period)
+
+        return rsi, stochastic
 
     @staticmethod
     def calculate_ema(prices, period=9):
@@ -68,12 +92,11 @@ class UtilService:
                     touch_flag = True  # Identifica o início de um toque
                     continue
 
-            # Verificar se houve uma mudança de direção após o toque
             if touch_flag:
                 if (prices_series[i] > prices_series[i-1] and prices_series[i-1] < ema_series[i-1]) or \
                    (prices_series[i] < prices_series[i-1] and prices_series[i-1] > ema_series[i-1]):
                     ema_touches += 1
-                    touch_flag = False  # Reseta o flag após contar o toque
+                    touch_flag = False
 
         return ema_touches
 
@@ -86,18 +109,6 @@ class UtilService:
         except Exception as e:
             logging.error(f"Erro ao calcular a mudança de preço: {e}")
             raise
-
-    @staticmethod
-    def calculate_stochastic_oscillator(high_prices, low_prices, close_prices, period=14):
-        if len(close_prices) < period:
-            logging.warning("Dados insuficientes para calcular o Oscilador Estocástico.")
-            return None
-
-        high_max = pd.Series(high_prices).rolling(window=period).max()
-        low_min = pd.Series(low_prices).rolling(window=period).min()
-        stoch = ((close_prices[-1] - low_min[-1]) / (high_max[-1] - low_min[-1])) * 100
-
-        return stoch
 
     @staticmethod
     def identify_patterns(prices):
@@ -129,3 +140,18 @@ class UtilService:
         resistance = 2 * pivot_point - low
 
         return {'support': support, 'resistance': resistance}
+
+    @staticmethod
+    def calculate_bollinger_bands(prices, period=20, num_std_dev=2):
+        if len(prices) < period:
+            logging.warning("Dados insuficientes para calcular as Bandas de Bollinger.")
+            return None, None, None
+
+        prices_series = pd.Series(prices)
+        sma = prices_series.rolling(window=period).mean()
+        rstd = prices_series.rolling(window=period).std()
+
+        upper_band = sma + rstd * num_std_dev
+        lower_band = sma - rstd * num_std_dev
+
+        return upper_band, sma, lower_band
