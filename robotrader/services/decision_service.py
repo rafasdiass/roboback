@@ -33,6 +33,10 @@ class DecisionService:
         rsi, stochastic_oscillator = self.util_service.calculate_combined_stochastic_rsi(prices5min, prices5min, prices5min)
         adx = self.util_service.calculate_adx(prices5min, prices5min, prices5min)
         
+        bollinger_bands_5min = self.util_service.calculate_bollinger_bands(prices5min)
+        bollinger_bands_15min = self.util_service.calculate_bollinger_bands(prices15min)
+        bollinger_bands_1h = self.util_service.calculate_bollinger_bands(prices1h)
+
         return {
             "price": price,
             "rsi": rsi,
@@ -41,7 +45,9 @@ class DecisionService:
             "adx": adx,
             "price_change": self.util_service.calculate_price_change(prices5min),
             "pattern": self.util_service.identify_patterns(prices5min),
-            "bollinger_bands": self.util_service.calculate_bollinger_bands(prices5min)
+            "bollinger_bands_5min": bollinger_bands_5min,
+            "bollinger_bands_15min": bollinger_bands_15min,
+            "bollinger_bands_1h": bollinger_bands_1h
         }
 
     def calculate_scores(self, indicators):
@@ -56,7 +62,7 @@ class DecisionService:
             'price_change_score': self.score_price_change(indicators['price_change']),
             'stochastic_oscillator_score': self.score_stochastic_oscillator(indicators['stochastic_oscillator'], indicators['rsi']),
             'pattern_score': self.score_pattern(indicators['pattern']),
-            'bollinger_band_score': self.score_bollinger_bands(indicators['price'], indicators['bollinger_bands']),
+            'bollinger_band_score': self.score_bollinger_bands(indicators['price'], indicators['bollinger_bands_5min']),
             'adx_score': adx_score
         }
 

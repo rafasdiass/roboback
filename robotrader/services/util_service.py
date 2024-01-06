@@ -184,7 +184,6 @@ class UtilService:
 
         return upper_band, sma, lower_band
 
-    # Métodos para calcular o ADX e os Indicadores Direcionais
     @staticmethod
     def calculate_directional_movement(high_prices, low_prices):
         """

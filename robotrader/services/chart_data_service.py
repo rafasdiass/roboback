@@ -12,8 +12,8 @@ class ChartDataService:
         }
         forex_symbol = f"{symbol}=X"
         try:
-            # Aumente o período de download para obter mais dados, se necessário
-            data = yf.download(forex_symbol, period="1mo", interval=interval_map[interval])
+            # Considerar aumentar o período se necessário
+            data = yf.download(forex_symbol, period="3mo", interval=interval_map[interval])
             if not isinstance(data.index, pd.DatetimeIndex):
                 data.index = pd.to_datetime(data.index)
             return data
