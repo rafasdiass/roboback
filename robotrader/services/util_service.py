@@ -8,7 +8,7 @@ class PriceDataError(Exception):
 
 class UtilService:
     @staticmethod
-    def validate_prices(prices, period):
+    async def validate_prices(prices, period):
         """
         Valida se há dados suficientes para calcular o indicador e se os dados são válidos.
         """
@@ -19,11 +19,11 @@ class UtilService:
             raise PriceDataError(f"Não há dados suficientes para calcular o indicador. Esperado: {period}, fornecido: {len(prices)}")
 
     @staticmethod
-    def calculate_rsi(prices, period=7):
+    async def calculate_rsi(prices, period=7):
         """
         Calcula o Índice de Força Relativa (RSI).
         """
-        UtilService.validate_prices(prices, period + 1)
+        await UtilService.validate_prices(prices, period + 1)
 
         prices_series = pd.Series(prices)
         delta = prices_series.diff().dropna()
@@ -36,13 +36,13 @@ class UtilService:
         return 100.0 - (100.0 / (1.0 + RS))
 
     @staticmethod
-    def calculate_stochastic_oscillator(high_prices, low_prices, close_prices, period=14):
+    async def calculate_stochastic_oscillator(high_prices, low_prices, close_prices, period=14):
         """
         Calcula o Oscilador Estocástico.
         """
-        UtilService.validate_prices(high_prices, period)
-        UtilService.validate_prices(low_prices, period)
-        UtilService.validate_prices(close_prices, period)
+        await UtilService.validate_prices(high_prices, period)
+        await UtilService.validate_prices(low_prices, period)
+        await UtilService.validate_prices(close_prices, period)
 
         high_max = pd.Series(high_prices).rolling(window=period).max()
         low_min = pd.Series(low_prices).rolling(window=period).min()
@@ -50,43 +50,43 @@ class UtilService:
         return ((close_prices[-1] - low_min[-1]) / (high_max[-1] - low_min[-1])) * 100
 
     @staticmethod
-    def calculate_combined_stochastic_rsi(high_prices, low_prices, close_prices, rsi_period=7, stochastic_period=14):
+    async def calculate_combined_stochastic_rsi(high_prices, low_prices, close_prices, rsi_period=7, stochastic_period=14):
         """
         Calcula uma combinação de Stochastic RSI.
         """
         max_period = max(rsi_period, stochastic_period)
-        UtilService.validate_prices(close_prices, max_period)
+        await UtilService.validate_prices(close_prices, max_period)
 
-        rsi = UtilService.calculate_rsi(close_prices, rsi_period)
-        stochastic = UtilService.calculate_stochastic_oscillator(high_prices, low_prices, close_prices, stochastic_period)
+        rsi = await UtilService.calculate_rsi(close_prices, rsi_period)
+        stochastic = await UtilService.calculate_stochastic_oscillator(high_prices, low_prices, close_prices, stochastic_period)
 
         return rsi, stochastic
 
     @staticmethod
-    def calculate_ema(prices, period=9):
+    async def calculate_ema(prices, period=9):
         """
         Calcula a Média Móvel Exponencial (EMA).
         """
-        UtilService.validate_prices(prices, period)
+        await UtilService.validate_prices(prices, period)
 
         prices_series = pd.Series(prices)
         return prices_series.ewm(span=period, adjust=False).mean().iloc[-1]
 
     @staticmethod
-    def get_ema_direction_and_touches(prices, period=9):
+    async def get_ema_direction_and_touches(prices, period=9):
         """
         Determina a direção da EMA e conta o número de toques.
         """
-        UtilService.validate_prices(prices, period)
+        await UtilService.validate_prices(prices, period)
 
         prices_series = pd.Series(prices)
         ema = prices_series.ewm(span=period, adjust=False).mean()
         direction = "up" if ema.iloc[-1] > ema.iloc[-2] else "down"
 
-        return direction, UtilService.calculate_ema_touches(prices_series, ema)
+        return direction, await UtilService.calculate_ema_touches(prices_series, ema)
 
     @staticmethod
-    def calculate_ema_touches(prices_series, ema_series, threshold=0.03):
+    async def calculate_ema_touches(prices_series, ema_series, threshold=0.03):
         """
         Calcula o número de toques na EMA.
         """
@@ -106,7 +106,7 @@ class UtilService:
         return ema_touches
 
     @staticmethod
-    def calculate_price_change(prices):
+    async def calculate_price_change(prices):
         """
         Calcula a mudança percentual do preço.
         """
@@ -120,7 +120,7 @@ class UtilService:
             raise
 
     @staticmethod
-    def identify_patterns(prices):
+    async def identify_patterns(prices):
         """
         Identifica padrões comuns como topo duplo e fundo duplo.
         """
@@ -154,7 +154,7 @@ class UtilService:
         return segment[1] == min(segment[:3]) and segment[3] == min(segment[2:])
 
     @staticmethod
-    def calculate_support_and_resistance(prices):
+    async def calculate_support_and_resistance(prices):
         """
         Calcula níveis de suporte e resistência.
         """
@@ -169,11 +169,11 @@ class UtilService:
         return {'support': 2 * pivot_point - high, 'resistance': 2 * pivot_point - low}
 
     @staticmethod
-    def calculate_bollinger_bands(prices, period=20, num_std_dev=2):
+    async def calculate_bollinger_bands(prices, period=20, num_std_dev=2):
         """
         Calcula as Bandas de Bollinger.
         """
-        UtilService.validate_prices(prices, period)
+        await UtilService.validate_prices(prices, period)
 
         prices_series = pd.Series(prices)
         sma = prices_series.rolling(window=period).mean()
@@ -185,7 +185,7 @@ class UtilService:
         return upper_band, sma, lower_band
 
     @staticmethod
-    def calculate_directional_movement(high_prices, low_prices):
+    async def calculate_directional_movement(high_prices, low_prices):
         """
         Calcula os movimentos direcionais positivo e negativo.
         """
@@ -195,11 +195,11 @@ class UtilService:
         return positive_movement, negative_movement
 
     @staticmethod
-    def calculate_directional_indicators(high_prices, low_prices, close_prices, period):
+    async def calculate_directional_indicators(high_prices, low_prices, close_prices, period):
         """
         Calcula os indicadores direcionais (+DI e -DI).
         """
-        positive_movement, negative_movement = UtilService.calculate_directional_movement(high_prices, low_prices)
+        positive_movement, negative_movement = await UtilService.calculate_directional_movement(high_prices, low_prices)
 
         tr = [max(high_prices[i] - low_prices[i], abs(high_prices[i] - close_prices[i - 1]), abs(low_prices[i] - close_prices[i - 1])) for i in range(1, len(close_prices))]
         tr_smoothed = pd.Series(tr).rolling(window=period).sum()
@@ -210,13 +210,13 @@ class UtilService:
         return pdi, ndi
 
     @staticmethod
-    def calculate_adx(high_prices, low_prices, close_prices, period=14):
+    async def calculate_adx(high_prices, low_prices, close_prices, period=14):
         """
         Calcula o Índice Direcional Médio (ADX).
         """
-        UtilService.validate_prices(close_prices, period + 1)
+        await UtilService.validate_prices(close_prices, period + 1)
 
-        pdi, ndi = UtilService.calculate_directional_indicators(high_prices, low_prices, close_prices, period)
+        pdi, ndi = await UtilService.calculate_directional_indicators(high_prices, low_prices, close_prices, period)
         adx_series = (abs(pdi - ndi) / (pdi + ndi)).replace([np.inf, -np.inf], 0).fillna(0) * 100
         adx = adx_series.ewm(span=period, adjust=False).mean()
 

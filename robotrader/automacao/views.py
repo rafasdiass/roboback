@@ -1,6 +1,6 @@
 # automacao/views.py
-import pandas as pd  # Importação do pandas
-
+import pandas as pd
+import os
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -11,9 +11,12 @@ from services.api_service import APIService
 from services.learning_service import LearningService
 from services.chart_data_service import ChartDataService
 
+# Chave de API passada diretamente (não recomendado para produção)
+api_key = "RRONFZFN9BJ8HWZK"
+
 # Inicialização dos serviços
 api_service = APIService()
-chart_data_service = ChartDataService()
+chart_data_service = ChartDataService(api_key) 
 currency_pair_service = CurrencyPairService(chart_data_service)
 decision_service = DecisionService()
 learning_service = LearningService()
