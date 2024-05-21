@@ -1,8 +1,7 @@
-from django.urls import path, include
 from django.contrib import admin
+from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('automacao/', include('automacao.urls')),  # Substitua 'meuapp' pelo nome do seu aplicativo
-    # Adicione mais URLs de outros apps aqui, se necessário
+    path('automacao/', include('automacao.urls')),  # Inclui as URLs do app 'automacao'
 ]

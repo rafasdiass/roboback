@@ -27,7 +27,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'corsheaders',  # Adicionado para suporte a CORS
-    'automacao',  # Substitua pelo nome do seu app Django
+    'automacao.apps.AutomacaoConfig',  # Substitua pelo nome do seu app Django e classe de configuração
 ]
 
 MIDDLEWARE = [
@@ -71,7 +71,18 @@ DATABASES = {
 
 # Validação de senha
 AUTH_PASSWORD_VALIDATORS = [
-    # ... (validadores de senha)
+    {
+        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+    },
 ]
 
 # Internacionalização
