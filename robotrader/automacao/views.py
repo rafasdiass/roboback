@@ -4,7 +4,6 @@ import asyncio
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.http import JsonResponse
 from services.robo_service import RoboService
 from services.currency_pair_service import CurrencyPairService
 from services.decision_service import DecisionService
@@ -21,10 +20,9 @@ learning_service = LearningService()
 robo_service = RoboService(decision_service, currency_pair_service, learning_service, api_service)
 
 # Função para buscar dados intraday de forma síncrona
-def fetch_intraday_data_sync(symbol, interval='1m', outputsize='compact'):
-    service = ChartDataService()
+def fetch_intraday_data_sync(symbol, interval='1m'):
     try:
-        data, source = asyncio.run(service.fetch_intraday_data(symbol, interval, outputsize))
+        data, source = asyncio.run(chart_data_service.fetch_intraday_data(symbol, interval))
         return data, source
     except Exception as e:
         logging.error(f"Erro ao buscar dados intraday para {symbol} com intervalo {interval}: {e}")
@@ -72,7 +70,12 @@ class GetIntradayData(APIView):
             if interval not in ['1m', '5m', '1h', '1d']:
                 raise ValueError(f"Intervalo inválido: {interval}. Intervalos válidos são: ['1m', '5m', '1h', '1d']")
             data, source = fetch_intraday_data_sync(symbol, interval)
-            return Response({'symbol': symbol, 'data': data.to_dict(), 'source': source}, status=status.HTTP_200_OK)
+            if isinstance(data, pd.DataFrame):
+                data_serializable = data.to_dict(orient='records')
+            else:
+                data_serializable = data
+
+            return Response({'symbol': symbol, 'data': data_serializable, 'source': source}, status=status.HTTP_200_OK)
         except ValueError as ve:
             logging.error(f"Erro de validação: {ve}")
             return Response({'error': str(ve)}, status=status.HTTP_400_BAD_REQUEST)

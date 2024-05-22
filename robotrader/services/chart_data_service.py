@@ -8,7 +8,7 @@ import time
 import numpy as np
 
 load_dotenv()
-api_key = os.getenv("EODHD_API_KEY")
+api_key = os.getenv("EODHD_API_KEY", "demo")  # Usando chave de API demo como padrão
 
 class ChartDataService:
     def __init__(self, api_key=api_key):
@@ -22,15 +22,17 @@ class ChartDataService:
         
         # Verifica se os dados estão no cache e ainda são válidos
         if cache_key in self.cache and (current_time - self.cache[cache_key]['timestamp'] < self.cache_duration):
+            logging.info(f"Dados de cache usados para {symbol} no intervalo {interval}")
             return self.cache[cache_key]['data'], 'cache'
         
-        url = f"https://eodhistoricaldata.com/api/intraday/{symbol}?interval={interval}&api_token={self.api_key}"
-        logging.info(f"Fetching data for {symbol} with URL: {url}")
+        # Ajuste a URL para usar a chave de API demo
+        url = f"https://eodhd.com/api/intraday/{symbol}?interval={interval}&api_token={self.api_key}&fmt=json"
+        logging.info(f"Buscando dados para {symbol} com URL: {url}")
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(url)
                 if response.status_code != 200:
-                    raise httpx.HTTPStatusError(f"HTTP error {response.status_code} for url {url}", request=response.request, response=response)
+                    raise httpx.HTTPStatusError(f"Erro HTTP {response.status_code} para URL {url}", request=response.request, response=response)
                 data = response.json()
                 if "data" in data:
                     formatted_data = self._format_data(data["data"])
