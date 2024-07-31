@@ -1,22 +1,48 @@
 import logging
+import requests
 import pandas as pd
-from dotenv import load_dotenv
-import os
-import httpx
 import asyncio
+import websockets
+import json
 import time
-import numpy as np
-
-load_dotenv()
-api_key = os.getenv("EODHD_API_KEY", "demo")  # Usando chave de API demo como padrão
+from datetime import datetime
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 class ChartDataService:
-    def __init__(self, api_key=api_key):
-        self.api_key = api_key
+    def __init__(self):
+        self.base_url = "https://api.binance.com/api/v3/klines"
+        self.websocket_url = "wss://stream.binance.com:9443/ws"
         self.cache = {}
         self.cache_duration = 60 * 60  # Cache por 1 hora
 
-    async def fetch_intraday_data(self, symbol, interval='1m', outputsize='compact'):
+    async def get_realtime_data(self, symbol):
+        """Obtém dados de preço em tempo real para um par de moedas específico."""
+        try:
+            ws_url = f"{self.websocket_url}/{symbol.lower()}@kline_1m"
+            async with websockets.connect(ws_url) as websocket:
+                async for message in websocket:
+                    data = json.loads(message)
+                    kline = data['k']
+                    yield {
+                        'Open Time': datetime.fromtimestamp(kline['t'] / 1000),
+                        'Open': float(kline['o']),
+                        'High': float(kline['h']),
+                        'Low': float(kline['l']),
+                        'Close': float(kline['c']),
+                        'Volume': float(kline['v']),
+                        'Close Time': datetime.fromtimestamp(kline['T'] / 1000),
+                        'Quote Asset Volume': float(kline['q']),
+                        'Number of Trades': int(kline['n']),
+                        'Taker Buy Base Asset Volume': float(kline['V']),
+                        'Taker Buy Quote Asset Volume': float(kline['Q'])
+                    }
+        except Exception as e:
+            logging.error(f"Erro ao obter dados em tempo real para {symbol}: {e}")
+            raise
+
+    async def fetch_intraday_data(self, symbol, interval='1m', limit=100):
+        """Obtém dados de preços intraday para um par de moedas em um intervalo específico."""
         cache_key = f"{symbol}_{interval}"
         current_time = time.time()
         
@@ -25,65 +51,55 @@ class ChartDataService:
             logging.info(f"Dados de cache usados para {symbol} no intervalo {interval}")
             return self.cache[cache_key]['data'], 'cache'
         
-        # Ajuste a URL para usar a chave de API demo
-        url = f"https://eodhd.com/api/intraday/{symbol}?interval={interval}&api_token={self.api_key}&fmt=json"
-        logging.info(f"Buscando dados para {symbol} com URL: {url}")
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url)
-                if response.status_code != 200:
-                    raise httpx.HTTPStatusError(f"Erro HTTP {response.status_code} para URL {url}", request=response.request, response=response)
-                data = response.json()
-                if "data" in data:
-                    formatted_data = self._format_data(data["data"])
-                    # Armazena no cache
-                    self.cache[cache_key] = {'data': formatted_data, 'timestamp': current_time}
-                    return formatted_data, 'real'
-                elif "error" in data:
-                    raise Exception(data["error"])
-                else:
-                    logging.error(f"Erro ao buscar dados para {symbol}: {data}")
-                    raise Exception(f"Erro ao buscar dados para {symbol}")
-        except httpx.HTTPStatusError as e:
-            logging.error(f"Erro HTTP ao buscar dados para {symbol}: {e}")
-            logging.error(f"URL: {url}")
-            logging.error(f"API Key: {self.api_key}")
-            raise
-        except httpx.RequestError as e:
-            logging.error(f"Erro de requisição ao buscar dados para {symbol}: {e}")
-            raise
-        except ValueError as e:
-            logging.error(f"Erro ao processar a resposta da API para {symbol}: {e}. Resposta: {response.text}")
-            raise
+            params = {'symbol': symbol, 'interval': interval, 'limit': limit}
+            response = requests.get(self.base_url, params=params)
+            data = response.json()
+
+            if not data or 'code' in data:
+                raise ValueError(f"Erro ao buscar dados históricos para {symbol} com intervalo {interval}")
+
+            df = pd.DataFrame(data, columns=[
+                'Open Time', 'Open', 'High', 'Low', 'Close', 'Volume',
+                'Close Time', 'Quote Asset Volume', 'Number of Trades',
+                'Taker Buy Base Asset Volume', 'Taker Buy Quote Asset Volume', 'Ignore'
+            ])
+            df['Open Time'] = pd.to_datetime(df['Open Time'], unit='ms')
+            df.set_index('Open Time', inplace=True)
+            
+            # Armazena no cache
+            self.cache[cache_key] = {'data': df, 'timestamp': current_time}
+            return df, 'real'
         except Exception as e:
-            logging.error(f"Erro ao buscar dados para {symbol}: {e}")
-            # Gera dados simulados se o limite de solicitações for atingido
-            simulated_data = self._generate_simulated_data(symbol, interval)
-            return simulated_data, 'simulated'
+            logging.error(f"Erro ao buscar dados históricos para {symbol} com intervalo {interval}: {e}")
+            raise
 
-    @staticmethod
-    def _format_data(data):
-        df = pd.DataFrame(data)
-        df['datetime'] = pd.to_datetime(df['datetime'])
-        df.set_index('datetime', inplace=True)
-        return df
-    
-    @staticmethod
-    def _generate_simulated_data(symbol, interval):
-        logging.warning(f"Gerando dados simulados para {symbol} no intervalo {interval}")
-        date_range = pd.date_range(end=pd.Timestamp.now(), periods=100, freq=interval)
-        data = {
-            'open': np.random.random(size=100) * 100,
-            'high': np.random.random(size=100) * 100,
-            'low': np.random.random(size=100) * 100,
-            'close': np.random.random(size=100) * 100,
-            'volume': np.random.randint(1, 100, size=100)
-        }
-        df = pd.DataFrame(data, index=date_range)
-        return df
+    def get_available_symbols(self):
+        """Obtém a lista de símbolos disponíveis."""
+        try:
+            response = requests.get("https://api.binance.com/api/v3/exchangeInfo")
+            data = response.json()
+            symbols = [symbol['symbol'] for symbol in data['symbols']]
+            return symbols
+        except Exception as e:
+            logging.error(f"Erro ao buscar lista de símbolos disponíveis: {e}")
+            return []
 
-# Ajuste para uso no Django
-def fetch_intraday_data_sync(symbol, interval='1m', outputsize='compact'):
-    service = ChartDataService()
-    data, source = asyncio.run(service.fetch_intraday_data(symbol, interval, outputsize))
-    return data, source
+    def plot_candlestick(self, df, symbol):
+        """Gera um gráfico de candlestick usando plotly."""
+        fig = make_subplots(rows=1, cols=1, shared_xaxes=True)
+
+        fig.add_trace(go.Candlestick(
+            x=df.index,
+            open=df['Open'],
+            high=df['High'],
+            low=df['Low'],
+            close=df['Close'],
+            name=symbol
+        ))
+
+        fig.update_layout(title=f'Candlestick Chart for {symbol}',
+                          xaxis_title='Time',
+                          yaxis_title='Price')
+
+        fig.show()
