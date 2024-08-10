@@ -1,9 +1,10 @@
 
 
-```markdown
+---
+
 # Roboback
 
-Roboback é um projeto desenvolvido em Django que tem como objetivo indicar sinais de compra e venda em daytrade no mercado financeiro. Ele utiliza um ambiente virtual em Python 3 para garantir a compatibilidade e o isolamento das dependências.
+Roboback é um projeto desenvolvido em Django com Python 3, focado na criação de um robô de trading automatizado para o mercado Forex. O sistema utiliza diversas técnicas avançadas de aprendizado e automação para tomar decisões de compra e venda, com base em indicadores financeiros personalizados.
 
 ## Estrutura do Projeto
 
@@ -43,7 +44,6 @@ roboback/
 │   ├── indicator_service.py
 │   ├── learning_service.py
 │   ├── robo_service.py
-│   ├── teste.py
 │   └── util_service.py
 │
 └── node_modules/
@@ -106,7 +106,7 @@ Inicie o servidor de desenvolvimento do Django:
 python3 manage.py runserver
 ```
 
-## Lógica de Negócio
+## Descrição dos Serviços
 
 ### RoboService
 
@@ -137,12 +137,13 @@ python3 manage.py runserver
 - **Responsabilidades:**
   - **Tomada de Decisões:** Analisa os dados fornecidos pelo `CurrencyPairService`, utilizando indicadores técnicos, para determinar a melhor ação a ser tomada.
   - **Integração com Outros Serviços:** Colabora com outros serviços, como o `LearningService`, para melhorar as decisões ao longo do tempo.
+  - **Sistema de Pesos e Pontuação:** Implementa um sistema de pontuação e pesos que é ajustado continuamente com base nos resultados das decisões passadas. Este sistema utiliza uma combinação de memória de curto e longo prazo, janelas deslizantes, e decaimento exponencial para garantir que o robô de trading se adapte às condições de mercado de forma eficaz.
 
 ### IndicatorService
 
 - **Função:** Responsável exclusivamente pelo cálculo dos indicadores técnicos utilizados nas análises.
 - **Responsabilidades:**
-  - **Cálculo de Indicadores:** Fornece métodos para calcular indicadores como SMA, EMA, RSI, e Bollinger Bands, sem se preocupar com a lógica de decisão ou validação de dados.
+  - **Cálculo de Indicadores:** Fornece métodos para calcular indicadores como SMA, EMA, RSI, Bandas de Bollinger, ADX, e outros. Esses cálculos são isolados para garantir que o `DecisionService` possa se concentrar na lógica de decisão.
 
 ### UtilService
 
@@ -155,9 +156,10 @@ python3 manage.py runserver
 
 - **Função:** Aprimora o modelo de decisão ao longo do tempo, ajustando os pesos dos indicadores técnicos com base nos resultados das decisões anteriores.
 - **Responsabilidades:**
-  - **Ajuste de Pesos:** Modifica os pesos dos indicadores técnicos com base no sucesso ou falha das decisões de trading.
+  - **Ajuste de Pesos:** Modifica os pesos dos indicadores técnicos com base no sucesso ou falha das decisões de trading, utilizando uma combinação de memória de curto e longo prazo, janelas deslizantes, e decaimento exponencial.
   - **Normalização e Armazenamento:** Garante que os pesos estejam balanceados e armazena-os no banco de dados para uso futuro.
   - **Taxa de Aprendizado:** Gerencia a taxa de aprendizado, permitindo que o modelo se ajuste de forma gradual e controlada.
+  - **Memória de Curto e Longo Prazo:** Mantém uma memória de curto prazo (através de janelas deslizantes) e uma memória de longo prazo (com ajuste gradual) para garantir que o sistema se adapte tanto às condições imediatas quanto às tendências de mercado mais duradouras.
 
 ## Serviços e Funcionalidades
 
@@ -186,17 +188,13 @@ O diretório `services` contém serviços auxiliares para o projeto, como:
 - `robo_service.py`: Serviço principal que orquestra todos os outros serviços para realizar o trading automatizado.
 - `util_service.py`: Serviço de utilitários que fornece validações e operações auxiliares para suportar os demais serviços.
 
-### Arquivos de Configuração
-
-- `settings.py`: Configurações gerais do projeto Django.
-- `urls.py`: Definições das rotas principais do projeto.
-- `asgi.py` e `wsgi.py`: Configurações para a implantação do projeto.
-
 ## Autor
 
 - **Rafael Dias**
   - [GitHub](https://github.com/rafasdiass)
-  - [LinkedIn](https://www.linkedin.com/in/rdrafaeldias/)
+  - [Linked
+
+In](https://www.linkedin.com/in/rdrafaeldias/)
   - Email: rafasdiasdev@gmail.com
 
 ## Contribuindo
@@ -206,9 +204,8 @@ Contribuições são bem-vindas! Para contribuir com o projeto, siga os passos a
 1. Fork o projeto.
 2. Crie uma branch para sua feature (`git checkout -b feature/fooBar`).
 3. Commit suas mudanças (`git commit -am 'Add some fooBar'`).
-4. Push para a branch (`git
-
- push origin feature/fooBar`).
+4. Push para a branch (`git push origin feature/fooBar`).
 5. Crie um novo Pull Request.
-```
+
+---
 
