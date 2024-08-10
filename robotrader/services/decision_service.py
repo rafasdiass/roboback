@@ -1,15 +1,16 @@
 import logging
 import asyncio
-import datetime
-from .util_service import UtilService
+from util_service import UtilService
+from indicator_service import Indicator
 from .learning_service import LearningService
 from .constants import *
 from automacao.models import DecisionRecord
+import datetime
 
 class DecisionService:
-    def __init__(self):
+    def __init__(self, window_size=5, long_term_decay_factor=0.95):
         self.util_service = UtilService()
-        self.learning_service = LearningService()
+        self.learning_service = LearningService(window_size=window_size, long_term_decay_factor=long_term_decay_factor)
 
     async def make_decision(self, currency_pair, prices5min, prices15min, prices1h):
         if not all([not prices5min.empty, not prices15min.empty, not prices1h.empty]):
@@ -32,30 +33,35 @@ class DecisionService:
 
     async def calculate_indicators(self, prices5min, prices15min, prices1h):
         price = prices5min['Close'].iloc[-1]
-        rsi, stochastic_oscillator = await self.util_service.calculate_combined_stochastic_rsi(
+        rsi, stochastic_oscillator = self.util_service.calculate_combined_stochastic_rsi(
             prices5min['High'], prices5min['Low'], prices5min['Close']
         )
-        adx = await self.util_service.calculate_adx(prices5min['High'], prices5min['Low'], prices5min['Close'])
+        adx = self.util_service.calculate_adx(prices5min['High'], prices5min['Low'], prices5min['Close'])
 
-        bollinger_bands_5min = await self.util_service.calculate_bollinger_bands(prices5min['Close'])
-        bollinger_bands_15min = await self.util_service.calculate_bollinger_bands(prices15min['Close'])
-        bollinger_bands_1h = await self.util_service.calculate_bollinger_bands(prices1h['Close'])
+        bollinger_bands_5min = Indicator.calculate_bollinger_bands(prices5min['Close'])
+        bollinger_bands_15min = Indicator.calculate_bollinger_bands(prices15min['Close'])
+        bollinger_bands_1h = Indicator.calculate_bollinger_bands(prices1h['Close'])
+
+        # Verificação de rompimento da EMA 50 e continuidade do fluxo
+        ema_50_breakout_flow = self.util_service.check_ema_50_breakout_and_flow(prices5min['Close'])
 
         return {
             "price": price,
             "rsi": rsi,
             "stochastic_oscillator": stochastic_oscillator,
-            "ema": await self.util_service.calculate_ema(prices5min['Close']),
+            "ema": Indicator.calculate_ema(prices5min['Close']),
             "adx": adx,
-            "price_change": await self.util_service.calculate_price_change(prices5min['Close']),
-            "pattern": await self.util_service.identify_patterns(prices5min['Close']),
+            "price_change": self.util_service.calculate_price_change(prices5min['Close']),
+            "pattern": self.util_service.identify_patterns(prices5min['Close']),
             "bollinger_bands_5min": bollinger_bands_5min,
             "bollinger_bands_15min": bollinger_bands_15min,
-            "bollinger_bands_1h": bollinger_bands_1h
+            "bollinger_bands_1h": bollinger_bands_1h,
+            "ema_50_breakout_flow": ema_50_breakout_flow  # Adicionando o novo indicador
         }
 
     async def calculate_scores(self, indicators):
         adx_score = await self.score_adx(indicators['adx'], indicators)
+        ema_50_breakout_flow_score = 1 if indicators['ema_50_breakout_flow'] else 0
 
         return {
             'rsi_score': await self.score_rsi(indicators['rsi']),
@@ -64,7 +70,8 @@ class DecisionService:
             'stochastic_oscillator_score': await self.score_stochastic_oscillator(indicators['stochastic_oscillator'], indicators['rsi']),
             'pattern_score': await self.score_pattern(indicators['pattern']),
             'bollinger_band_score': await self.score_bollinger_bands(indicators['price'], indicators['bollinger_bands_5min']),
-            'adx_score': adx_score
+            'adx_score': adx_score,
+            'ema_50_breakout_flow_score': ema_50_breakout_flow_score  # Adicionando a pontuação do rompimento EMA 50
         }
 
     async def evaluate_decision(self, scores):
@@ -89,7 +96,7 @@ class DecisionService:
     async def score_ema(self, ema, price):
         if ema is None or price is None:
             return 0
-        ema_direction, ema_touches = await self.util_service.get_ema_direction_and_touches([price])
+        ema_direction, ema_touches = self.util_service.get_ema_direction_and_touches([price])
         if ema_touches >= 3:
             return 1 if price > ema and ema_direction == 'up' else -1 if price < ema and ema_direction == 'down' else 0
         return 0

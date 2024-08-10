@@ -27,7 +27,7 @@ class RoboService:
                 loop.run_until_complete(self.check_and_update_decisions())
             except Exception as e:
                 logging.error(f"Erro durante a observação: {e}")
-            time.sleep(300)
+            time.sleep(300)  # Aguarda 5 minutos antes de executar novamente
 
     async def check_and_update_decisions(self):
         currency_pairs = self.currency_pair_service.get_currency_pairs()
@@ -62,7 +62,8 @@ class RoboService:
     async def save_decision(self, currency_pair, decision, indicators):
         TradingDecision.objects.create(currency_pair=currency_pair, decision=decision)
         success = decision in ["Compra", "Venda"]
-        await self.learning_service.store_result(indicators, success)
+        if self.learning_service:
+            await self.learning_service.store_result(indicators, success)
 
     def stop_observer(self):
         self.running = False
