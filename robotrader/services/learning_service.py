@@ -31,8 +31,9 @@ class LearningService:
     def adjust_weights_based_on_success(self, indicators, success):
         """Ajusta os pesos com base no sucesso ou falha de uma decisão."""
         for key in indicators:
-            self.short_term_memory[key].append(self.calculate_new_weight(self.short_term_memory[key][-1] if self.short_term_memory[key] else 0, success))
-            self.long_term_memory[key] = self.calculate_new_weight(self.long_term_memory[key], success)
+            if indicators[key] is not None:  # Verifica se o indicador é válido
+                self.short_term_memory[key].append(self.calculate_new_weight(self.short_term_memory[key][-1] if self.short_term_memory[key] else 0, success))
+                self.long_term_memory[key] = self.calculate_new_weight(self.long_term_memory[key], success)
 
         self.apply_decay_to_long_term()
         self.weights = self.combine_memories()

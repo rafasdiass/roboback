@@ -1,11 +1,13 @@
 import logging
 import asyncio
-from util_service import UtilService
-from indicator_service import Indicator
+from asgiref.sync import sync_to_async
+from .util_service import UtilService
+from .indicator_service import Indicator
 from .learning_service import LearningService
 from .constants import *
 from automacao.models import DecisionRecord
 import datetime
+import time
 
 class DecisionService:
     def __init__(self, window_size=5, long_term_decay_factor=0.95):
@@ -42,7 +44,6 @@ class DecisionService:
         bollinger_bands_15min = Indicator.calculate_bollinger_bands(prices15min['Close'])
         bollinger_bands_1h = Indicator.calculate_bollinger_bands(prices1h['Close'])
 
-        # Verificação de rompimento da EMA 50 e continuidade do fluxo
         ema_50_breakout_flow = self.util_service.check_ema_50_breakout_and_flow(prices5min['Close'])
 
         return {
@@ -56,7 +57,7 @@ class DecisionService:
             "bollinger_bands_5min": bollinger_bands_5min,
             "bollinger_bands_15min": bollinger_bands_15min,
             "bollinger_bands_1h": bollinger_bands_1h,
-            "ema_50_breakout_flow": ema_50_breakout_flow  # Adicionando o novo indicador
+            "ema_50_breakout_flow": ema_50_breakout_flow
         }
 
     async def calculate_scores(self, indicators):
@@ -71,12 +72,12 @@ class DecisionService:
             'pattern_score': await self.score_pattern(indicators['pattern']),
             'bollinger_band_score': await self.score_bollinger_bands(indicators['price'], indicators['bollinger_bands_5min']),
             'adx_score': adx_score,
-            'ema_50_breakout_flow_score': ema_50_breakout_flow_score  # Adicionando a pontuação do rompimento EMA 50
+            'ema_50_breakout_flow_score': ema_50_breakout_flow_score
         }
 
     async def evaluate_decision(self, scores):
         weights = await self.learning_service.get_weights()
-        total_score = sum(weights[key] * score for key, score in scores.items())
+        total_score = sum(weights[key] * score for key, score in scores.items() if score is not None)
 
         if total_score == 0:
             return 'Sem sinal', None
@@ -142,12 +143,14 @@ class DecisionService:
         else:
             return 'neutral'
 
-    async def check_decision_result(self, currency_pair, decision):
+    @sync_to_async
+    def check_decision_result(self, currency_pair, decision):
         try:
-            await asyncio.sleep(24 * 60 * 60)
+            # Simulando uma espera de 24 horas
+            time.sleep(24 * 60 * 60)
 
-            current_price = await self.util_service.get_current_price(currency_pair)
-            decision_price = await self.util_service.get_price_at_time(currency_pair, datetime.datetime.now() - datetime.timedelta(days=1))
+            current_price = self.util_service.get_current_price(currency_pair)
+            decision_price = self.util_service.get_price_at_time(currency_pair, datetime.datetime.now() - datetime.timedelta(days=1))
 
             if decision == "Compra":
                 return current_price > decision_price
@@ -161,10 +164,14 @@ class DecisionService:
 
     async def record_decision(self, currency_pair, decision, result):
         try:
-            DecisionRecord.objects.create(
-                currency_pair=currency_pair,
-                decision=decision,
-                result=result
-            )
+            await self._create_decision_record(currency_pair, decision, result)
         except Exception as e:
             logging.error(f"Erro ao registrar a decisão para {currency_pair}: {e}")
+
+    @sync_to_async
+    def _create_decision_record(self, currency_pair, decision, result):
+        DecisionRecord.objects.create(
+            currency_pair=currency_pair,
+            decision=decision,
+            result=result
+        )
