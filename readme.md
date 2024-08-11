@@ -1,5 +1,4 @@
 
-
 ---
 
 # Roboback
@@ -95,14 +94,16 @@ pip3 install -r requirements.txt
 Aplique as migrações para configurar o banco de dados:
 
 ```sh
+cd robotrader
 python3 manage.py migrate
 ```
 
 ### Passo 5: Iniciar o Servidor de Desenvolvimento
 
-Inicie o servidor de desenvolvimento do Django:
+Entre na pasta `robotrader` e inicie o servidor de desenvolvimento do Django:
 
 ```sh
+cd robotrader
 python3 manage.py runserver
 ```
 
@@ -192,20 +193,10 @@ O diretório `services` contém serviços auxiliares para o projeto, como:
 
 - **Rafael Dias**
   - [GitHub](https://github.com/rafasdiass)
-  - [Linked
+  - [LinkedIn
 
-In](https://www.linkedin.com/in/rdrafaeldias/)
+](https://www.linkedin.com/in/rdrafaeldias/)
   - Email: rafasdiasdev@gmail.com
 
-## Contribuindo
-
-Contribuições são bem-vindas! Para contribuir com o projeto, siga os passos abaixo:
-
-1. Fork o projeto.
-2. Crie uma branch para sua feature (`git checkout -b feature/fooBar`).
-3. Commit suas mudanças (`git commit -am 'Add some fooBar'`).
-4. Push para a branch (`git push origin feature/fooBar`).
-5. Crie um novo Pull Request.
-
----
+--- 
 
