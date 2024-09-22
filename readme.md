@@ -1,6 +1,6 @@
+Aqui está a atualização em formato Markdown para o seu `README.md`, com instruções para uso do Python 3 e o caminho correto para entrar na pasta `robotrader`:
 
----
-
+```markdown
 # Roboback
 
 Roboback é um projeto desenvolvido em Django com Python 3, focado na criação de um robô de trading automatizado para o mercado Forex. O sistema utiliza diversas técnicas avançadas de aprendizado e automação para tomar decisões de compra e venda, com base em indicadores financeiros personalizados.
@@ -162,41 +162,10 @@ python3 manage.py runserver
   - **Taxa de Aprendizado:** Gerencia a taxa de aprendizado, permitindo que o modelo se ajuste de forma gradual e controlada.
   - **Memória de Curto e Longo Prazo:** Mantém uma memória de curto prazo (através de janelas deslizantes) e uma memória de longo prazo (com ajuste gradual) para garantir que o sistema se adapte tanto às condições imediatas quanto às tendências de mercado mais duradouras.
 
-## Serviços e Funcionalidades
-
-### Automacao
-
-O módulo `automacao` é responsável por gerenciar os processos de sinalização de compra e venda em daytrade. Ele inclui:
-
-- `admin.py`: Configurações do Django Admin para o app.
-- `apps.py`: Configurações do app `automacao`.
-- `models.py`: Definição dos modelos de dados.
-- `tests.py`: Testes automatizados.
-- `urls.py`: Configurações de URL para o app `automacao`.
-- `views.py`: Definição das views para o app `automacao`.
-
-### Services
-
-O diretório `services` contém serviços auxiliares para o projeto, como:
-
-- `api_service.py`: Serviço responsável por integrar o sistema com APIs externas necessárias para o funcionamento do robô de trading.
-- `chart_data_service.py`: Serviço responsável por coletar e fornecer dados de mercado.
-- `constants.py`: Arquivo que contém constantes usadas no sistema.
-- `currency_pair_service.py`: Serviço que gerencia os pares de moedas e interage com o `ChartDataService` e `DecisionService`.
-- `decision_service.py`: Serviço que realiza a análise dos dados de mercado para tomar decisões de trading.
-- `indicator_service.py`: Serviço especializado no cálculo de indicadores técnicos.
-- `learning_service.py`: Serviço que ajusta e aprimora os pesos dos indicadores técnicos com base no desempenho passado.
-- `robo_service.py`: Serviço principal que orquestra todos os outros serviços para realizar o trading automatizado.
-- `util_service.py`: Serviço de utilitários que fornece validações e operações auxiliares para suportar os demais serviços.
-
 ## Autor
 
 - **Rafael Dias**
   - [GitHub](https://github.com/rafasdiass)
-  - [LinkedIn
-
-](https://www.linkedin.com/in/rdrafaeldias/)
+  - [LinkedIn](https://www.linkedin.com/in/rdrafaeldias/)
   - Email: rafasdiasdev@gmail.com
-
---- 
-
+```
