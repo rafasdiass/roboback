@@ -1,17 +1,22 @@
+import zmq
 import logging
-import asyncio  # Importa o módulo asyncio
-import datetime  # Importa o módulo datetime
+import asyncio
+import datetime
 from .util_service import UtilService  # Assumindo que UtilService é assíncrono
 from .learning_service import LearningService  # Assumindo que LearningService também é assíncrono
 from .constants import *  # Importando as constantes
 from automacao.models import DecisionRecord  # Modelo para registrar decisões
 
-
+logging.basicConfig(level=logging.INFO)
 
 class DecisionService:
-    def __init__(self):
+    def __init__(self, zmq_address="tcp://127.0.0.1:5555"):
         self.util_service = UtilService()
         self.learning_service = LearningService()
+        self.context = zmq.Context()
+        self.socket = self.context.socket(zmq.REP)  # Socket de resposta
+        self.socket.bind(zmq_address)
+        logging.info(f"Plugin de negociação iniciado e escutando em {zmq_address}")
 
     async def make_decision(self, currency_pair, prices5min, prices15min, prices1h):
         """
@@ -83,7 +88,6 @@ class DecisionService:
         """
         weights = await self.learning_service.get_weights()
         total_score = sum(weights[key] * score for key, score in scores.items())
-
         if total_score == 0:
             return 'Sem sinal', None
 
@@ -154,7 +158,6 @@ class DecisionService:
             return 0
 
         trend_direction = await self.determine_trend_direction(indicators)
-        
         if adx > ADX_THRESHOLD and trend_direction != 'neutral':
             return 1 if trend_direction == 'up' else -1
         else:
@@ -167,7 +170,6 @@ class DecisionService:
         ema = indicators['ema']
         price = indicators['price']
         rsi = indicators['rsi']
-
         if price > ema and rsi > 70:
             return 'up'
         elif price < ema and rsi < 30:
@@ -178,39 +180,4 @@ class DecisionService:
     async def check_decision_result(self, currency_pair, decision):
         """
         Verifica o resultado de uma decisão após um período de tempo.
-        Retorna True para decisão bem-sucedida, False para mal-sucedida.
-        """
-        try:
-            # Tempo de espera antes de verificar o resultado da decisão (ex: 24 horas)
-            await asyncio.sleep(24 * 60 * 60) 
-
-            # Obter os dados de mercado atuais
-            current_price = await self.util_service.get_current_price(currency_pair)
-            
-            # Obter o preço no momento da decisão
-            decision_price = await self.util_service.get_price_at_time(currency_pair, datetime.datetime.now() - datetime.timedelta(days=1))
-
-            if decision == "Compra":
-                # Se o preço subiu desde a decisão, então foi um sucesso
-                return current_price > decision_price
-            elif decision == "Venda":
-                # Se o preço caiu desde a decisão, então foi um sucesso
-                return current_price < decision_price
-            else:
-                # Se não houve sinal, não podemos determinar o sucesso
-                return False
-        except Exception as e:
-            logging.error(f"Erro ao verificar o resultado da decisão para {currency_pair}: {e}")
-            return False
-    async def record_decision(self, currency_pair, decision, result):
-        """
-        Registra a decisão e seu resultado no banco de dados.
-        """
-        try:
-            DecisionRecord.objects.create(
-                currency_pair=currency_pair,
-                decision=decision,
-                result=result
-            )
-        except Exception as e:
-            logging.error(f"Erro ao registrar a decisão para {currency_pair}: {e}")
+        Retorna True para

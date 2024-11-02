@@ -1,7 +1,7 @@
 import logging
 import asyncio
 import pandas as pd
-from services.decision_service import DecisionService  # Certifique-se de que este caminho esteja correto
+from services.decision_service import DecisionService
 from services.chart_data_service import ChartDataService
 
 class CurrencyPairService:
@@ -9,19 +9,16 @@ class CurrencyPairService:
         self.chart_data_service = chart_data_service or ChartDataService()
         self.currency_pairs = ['EURUSD', 'AUDCAD']
         self.min_data_points = 100
-        self.last_call = None  # Inicializamos a variável como None
+        self.last_call = None
 
     def get_currency_pairs(self):
-        """ Retorna a lista de pares de moedas disponíveis. """
         return self.currency_pairs
 
     async def fetch_price_data(self, symbol, interval):
-        """ Obtém dados de preços para um par de moedas específico e intervalo de tempo. """
         try:
-            # Verifica e inicializa o loop de eventos se necessário
             if self.last_call is None:
                 self.last_call = asyncio.get_event_loop().time()
-            
+
             current_time = asyncio.get_event_loop().time()
             elapsed = current_time - self.last_call
             if elapsed < 72:
@@ -30,7 +27,7 @@ class CurrencyPairService:
             data, source = await self.chart_data_service.fetch_intraday_data(symbol, interval)
             return self._validate_and_return_data(data, symbol, interval), source
         except Exception as e:
-            self._log_error(f"Erro ao obter dados para {symbol} no intervalo {interval}: {e}")
+            logging.error(f"Erro ao obter dados para {symbol} no intervalo {interval}: {e}")
             raise
 
     def _validate_and_return_data(self, data, symbol, interval):
@@ -45,7 +42,6 @@ class CurrencyPairService:
         return data
 
     def _has_significant_gaps(self, data):
-        """ Verifica se há lacunas significativas nos dados. """
         self._validate_dataframe(data)
         max_allowed_gap = pd.Timedelta(days=2)
         return any(data.index[i] - data.index[i - 1] > max_allowed_gap for i in range(1, len(data)))
@@ -57,31 +53,24 @@ class CurrencyPairService:
 
     @staticmethod
     def _log_error(message):
-        """ Loga uma mensagem de erro. """
         logging.error(message)
 
     async def analyze_currency_pair(self, symbol, intervals):
-        """ Analisa um par de moedas em diferentes intervalos de tempo. """
         decision_service = DecisionService()
         results = {}
-        # Obtenha os dados uma vez para o maior intervalo
         data, source = await self.fetch_price_data(symbol, max(intervals))
         for interval in intervals:
             try:
-                # Interpola os dados para o intervalo atual
                 interval_data = self._interpolate_data(data, interval)
                 decision, indicators = await decision_service.make_decision(
-                    symbol, interval_data['Close'].tolist(), interval_data['High'].tolist(), interval_data['Low'].tolist())
+                    symbol, interval_data['close'].tolist(), interval_data['high'].tolist(), interval_data['low'].tolist())
                 results[interval] = {'decision': decision, 'indicators': indicators, 'source': source}
             except ValueError as e:
                 self._log_error(f"Erro na análise do par de moedas {symbol} no intervalo {interval}: {e}")
         return results
 
     def _interpolate_data(self, data, interval):
-        """ Interpola os dados para o intervalo atual. """
-        # Aplica a EMA para suavizar os dados
         smoothed_data = data.ewm(span=9, adjust=False).mean()
-        # Interpola os dados suavizados
         interval_data = smoothed_data.resample(f'{interval}T').interpolate(method='time')
         if self._has_significant_gaps(interval_data):
             raise ValueError(f"Lacunas significativas encontradas nos dados interpolados.")

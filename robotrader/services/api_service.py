@@ -9,7 +9,7 @@ class APIService:
     def fetch_robo_decisions(self):
         try:
             response = requests.get(self.decisions_url, timeout=10)
-            response.raise_for_status()  # Movido para ser executado independentemente do status_code
+            response.raise_for_status()
             decisions_data = response.json()
             return [RoboDecisionModel(**d) for d in decisions_data]
         except requests.exceptions.HTTPError as e:
